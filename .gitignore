@@ -1,0 +1,45 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+build/
+dist/
+
+# ---- 虚拟环境 ----
+.venv/
+venv/
+env/
+
+# ---- 环境变量（含数据库口令，禁止入库） ----
+.env
+
+# ---- 测试与缓存 ----
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- Flask 实例目录 ----
+instance/
+
+# ---- 日志 ----
+*.log
+logs/
+
+# ---- 数据库备份（本地导出的 .sql / .csv 备份不入库） ----
+*.sql.bak
+database/backup/
+database/*.sql.gz
+*.db
+
+# ---- IDE / 编辑器 ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
