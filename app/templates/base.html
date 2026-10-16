@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="login-url" content="{{ url_for('auth.login') }}">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}概览{% endblock %} · 轻记账</title>
+  <script>
+    /* 在首屏渲染前应用主题，避免深色模式闪白 */
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') { t = 'light'; }
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.setAttribute('data-bs-theme', t);
+      } catch (e) { /* localStorage 不可用时保持默认浅色 */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+{% macro render_flashes() %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-stack" role="status" aria-live="polite">
+        {% for category, message in messages %}
+          {% set cat = 'danger' if category in ['error', 'danger'] else category %}
+          <div class="flash flash-{{ cat if cat in ['success', 'danger', 'warning', 'info'] else 'info' }}">
+            <span class="flash-icon">
+              {% if cat == 'success' %}✅{% elif cat == 'danger' %}⚠️{% elif cat == 'warning' %}🔔{% else %}ℹ️{% endif %}
+            </span>
+            <span class="flash-body">{{ message }}</span>
+            <button type="button" class="flash-close" aria-label="关闭提示" onclick="this.closest('.flash').remove()">✕</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+{% endmacro %}
+
+{% set is_auth_page = request.endpoint in ['auth.login', 'auth.register'] %}
+{% set show_shell = current_user.is_authenticated and not is_auth_page %}
+
+<body class="{{ 'app-body' if show_shell else 'auth-body' }}"
+      data-login-url="{{ url_for('auth.login') }}">
+
+{% if show_shell %}
+<div class="app-shell">
+  <!-- ================= 侧边导航 ================= -->
+  <aside class="app-sidebar" id="appSidebar" aria-label="主导航">
+    <a class="brand" href="{{ url_for('ledger.index') }}">
+      <span class="brand-logo">¥</span>
+      <span>
+        <span class="brand-name">轻记账</span>
+        <span class="brand-sub">LEDGER</span>
+      </span>
+    </a>
+
+    <a class="side-quick" href="{{ url_for('ledger.record_create') }}">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      记一笔
+    </a>
+
+    <nav class="side-nav">
+      <div class="side-section">记账</div>
+
+      <a class="side-link {{ 'active' if nav_active == 'index' else '' }}" href="{{ url_for('ledger.index') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>概览</span>
+      </a>
+
+      <a class="side-link {{ 'active' if nav_active == 'records' else '' }}" href="{{ url_for('ledger.records') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <span>账目流水</span>
+      </a>
+
+      <a class="side-link {{ 'active' if nav_active == 'stats' else '' }}" href="{{ url_for('stats.index') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>统计分析</span>
+      </a>
+
+      <div class="side-section">管理</div>
+
+      <a class="side-link {{ 'active' if nav_active == 'categories' else '' }}" href="{{ url_for('ledger.categories') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <span>分类管理</span>
+      </a>
+
+      <a class="side-link {{ 'active' if nav_active == 'accounts' else '' }}" href="{{ url_for('ledger.accounts') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+        <span>账户管理</span>
+      </a>
+
+      <a class="side-link {{ 'active' if nav_active == 'budgets' else '' }}" href="{{ url_for('ledger.budgets') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>
+        <span>预算管理</span>
+      </a>
+    </nav>
+
+    <div class="side-footer">
+      <a class="side-link side-link-muted" href="{{ url_for('auth.logout') }}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>退出登录</span>
+      </a>
+    </div>
+  </aside>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+  <!-- ================= 主内容 ================= -->
+  <div class="app-main-wrap">
+    <header class="app-topbar">
+      <button type="button" class="icon-btn sidebar-toggle" id="sidebarToggle" aria-label="展开导航" aria-controls="appSidebar" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">{{ self.title() }}</span>
+      <span class="topbar-spacer"></span>
+
+      <button type="button" class="icon-btn theme-toggle" id="theme-toggle" aria-label="切换深浅色主题" title="切换深浅色主题">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.2" y1="4.2" x2="5.7" y2="5.7"/><line x1="18.3" y1="18.3" x2="19.8" y2="19.8"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.2" y1="19.8" x2="5.7" y2="18.3"/><line x1="18.3" y1="5.7" x2="19.8" y2="4.2"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+
+      <div class="user-chip" title="{{ current_user.username }}">
+        <span class="user-avatar">{{ (current_user.nickname or current_user.username or 'U')[:1] }}</span>
+        <span class="user-meta">
+          <span class="user-name">{{ current_user.nickname or current_user.username }}</span>
+          <span class="user-handle">@{{ current_user.username }}</span>
+        </span>
+      </div>
+    </header>
+
+    <main class="app-main" id="mainContent">
+      {{ render_flashes() }}
+{% else %}
+<div class="auth-shell">
+  <!-- ================= 认证页品牌区 ================= -->
+  <section class="auth-brand" aria-hidden="true">
+    <div class="auth-brand-top">
+      <span class="auth-brand-logo">¥</span>
+      <span>
+        <div class="auth-brand-name">轻记账</div>
+        <div class="auth-brand-sub">PERSONAL LEDGER</div>
+      </span>
+    </div>
+
+    <div class="auth-brand-copy">
+      <h2 class="auth-headline">把每一笔<em>小钱</em><br>都记录清楚</h2>
+      <p class="auth-desc">面向学生与年轻人的记账本：收支流水、分类统计、月度预算，一张页面看懂钱花在哪里。</p>
+      <ul class="auth-features">
+        <li><span class="feature-ico">✍️</span>3 秒记一笔，支持现金 / 支付宝 / 微信 / 银行卡</li>
+        <li><span class="feature-ico">📊</span>ECharts 五维统计，饼图 / 趋势 / 热力图联动</li>
+        <li><span class="feature-ico">🎯</span>月度预算超支提醒，月末不再吃土</li>
+      </ul>
+    </div>
+
+    <div class="auth-brand-foot">课程设计项目 · Flask + Bootstrap + ECharts</div>
+  </section>
+
+  <main class="auth-panel" id="mainContent">
+    <div class="auth-card">
+      {{ render_flashes() }}
+{% endif %}
+
+      {% block content %}{% endblock %}
+
+{% if show_shell %}
+    </main>
+  </div>
+</div>
+{% else %}
+    </div>
+  </main>
+</div>
+{% endif %}
+
+<div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+<script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

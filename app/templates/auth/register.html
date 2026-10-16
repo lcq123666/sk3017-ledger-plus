@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}注册{% endblock %}
+
+{% block content %}
+<div class="auth-card-inner">
+  <h1 class="auth-title">创建账号 ✨</h1>
+  <p class="auth-sub">30 秒完成注册，开始管理你的钱包</p>
+
+  {% if errors._form %}
+    <div class="flash flash-danger" role="alert" style="margin-bottom:18px;">
+      <span class="flash-icon">⚠️</span>
+      <span class="flash-body">{{ errors._form }}</span>
+    </div>
+  {% endif %}
+
+  <form class="auth-form" method="post" action="{{ url_for('auth.register') }}" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="mb-3">
+      <label class="form-label" for="username">用户名</label>
+      <input type="text" class="form-control {{ 'is-invalid' if errors.username else '' }}"
+             id="username" name="username" autocomplete="username" autofocus
+             value="{{ values.get('username', '') }}" placeholder="2~20 位中英文、数字或下划线" required>
+      {% if errors.username %}
+        <div class="invalid-feedback">{{ errors.username }}</div>
+      {% else %}
+        <div class="form-text">用于登录，注册后不可修改。</div>
+      {% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="nickname">昵称</label>
+      <input type="text" class="form-control {{ 'is-invalid' if errors.nickname else '' }}"
+             id="nickname" name="nickname" maxlength="32"
+             value="{{ values.get('nickname', '') }}" placeholder="展示在导航栏的名字，如：小账本">
+      {% if errors.nickname %}<div class="invalid-feedback">{{ errors.nickname }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="password">密码</label>
+      <input type="password" class="form-control {{ 'is-invalid' if errors.password else '' }}"
+             id="password" name="password" autocomplete="new-password"
+             placeholder="至少 6 位" required>
+      {% if errors.password %}<div class="invalid-feedback">{{ errors.password }}</div>{% endif %}
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label" for="confirm_password">确认密码</label>
+      <input type="password" class="form-control {{ 'is-invalid' if errors.confirm_password else '' }}"
+             id="confirm_password" name="confirm_password" autocomplete="new-password"
+             placeholder="再输入一次密码" required>
+      {% if errors.confirm_password %}<div class="invalid-feedback">{{ errors.confirm_password }}</div>{% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">注册并开始记账</button>
+  </form>
+
+  <p class="auth-switch">已经有账号？<a href="{{ url_for('auth.login') }}">返回登录</a></p>
+
+  <div class="demo-hint">
+    <span>💡</span>
+    <span>注册后会为你自动创建 13 个常用分类（餐饮、交通、工资…）和 4 个资金账户，开箱即用。</span>
+  </div>
+</div>
+{% endblock %}
