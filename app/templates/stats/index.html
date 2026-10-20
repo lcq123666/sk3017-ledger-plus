@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}统计分析{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">统计分析</h1>
+    <p class="page-sub">五张图表看懂你的钱花在哪里：分类占比、月度趋势、每日支出、年度热力图与支出 TOP5。</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('ledger.records') }}">查看流水</a>
+    <a class="btn btn-primary" href="{{ url_for('ledger.record_create') }}">记一笔</a>
+  </div>
+</div>
+
+<!-- ============ 筛选栏 ============ -->
+<section class="filter-card">
+  <div class="filter-grid">
+    <div>
+      <label class="form-label" for="stats-year">年份</label>
+      <select class="form-select" id="stats-year">
+        {% for y in years %}
+          <option value="{{ y }}" {{ 'selected' if y == current_year }}>{{ y }} 年</option>
+        {% endfor %}
+        {% if current_year not in years %}
+          <option value="{{ current_year }}" selected>{{ current_year }} 年</option>
+        {% endif %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="stats-month">月份</label>
+      <select class="form-select" id="stats-month">
+        {% for m in range(1, 13) %}
+          <option value="{{ m }}" {{ 'selected' if m == current_month }}>{{ m }} 月</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="stats-type">统计类型</label>
+      <select class="form-select" id="stats-type">
+        <option value="expense" selected>支出</option>
+        <option value="income">收入</option>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <button type="button" class="btn btn-primary" id="stats-refresh">🔄 刷新数据</button>
+    </div>
+  </div>
+  <div class="filter-summary">
+    <span id="stats-period-label">{{ current_year }} 年 {{ current_month }} 月</span>
+    <span class="text-faint" id="stats-updated">数据来自后端实时统计接口</span>
+  </div>
+</section>
+
+<div id="stats-page"
+     data-overview-url="{{ url_for('stats.api_overview') }}"
+     data-pie-url="{{ url_for('stats.api_category_pie') }}"
+     data-monthly-url="{{ url_for('stats.api_monthly_trend') }}"
+     data-daily-url="{{ url_for('stats.api_daily_trend') }}"
+     data-heatmap-url="{{ url_for('stats.api_heatmap') }}"
+     data-top-url="{{ url_for('stats.api_top_categories') }}"
+     data-default-year="{{ current_year }}"
+     data-default-month="{{ current_month }}">
+
+  <!-- ============ 指标卡 ============ -->
+  <div class="stat-grid" id="stat-cards" aria-live="polite">
+    <article class="stat-card tone-income">
+      <div class="stat-head">
+        <span class="stat-label">本月收入</span>
+        <span class="stat-icon">💰</span>
+      </div>
+      <div class="stat-value money text-income" id="stat-income-value">¥0.00</div>
+      <div class="stat-hint" id="stat-income-hint">环比 — · 同比 —</div>
+    </article>
+
+    <article class="stat-card tone-expense">
+      <div class="stat-head">
+        <span class="stat-label">本月支出</span>
+        <span class="stat-icon">🧾</span>
+      </div>
+      <div class="stat-value money text-expense" id="stat-expense-value">¥0.00</div>
+      <div class="stat-hint" id="stat-expense-hint">环比 — · 同比 —</div>
+    </article>
+
+    <article class="stat-card tone-brand" id="stat-balance-card">
+      <div class="stat-head">
+        <span class="stat-label">本月结余</span>
+        <span class="stat-icon">⚖️</span>
+      </div>
+      <div class="stat-value money" id="stat-balance-value">¥0.00</div>
+      <div class="stat-hint" id="stat-balance-hint">环比 —</div>
+    </article>
+
+    <article class="stat-card tone-warning">
+      <div class="stat-head">
+        <span class="stat-label">预算使用率</span>
+        <span class="stat-icon">🎯</span>
+      </div>
+      <div class="stat-value money" id="stat-budget-value">—</div>
+      <div class="stat-hint" id="stat-budget-hint">本月未设置预算</div>
+    </article>
+  </div>
+
+  <!-- ============ 五张图表 ============ -->
+  <div class="chart-grid">
+    <article class="chart-card chart-col-5">
+      <div class="chart-head">
+        <h2 class="chart-title" id="pie-title"><span class="dot"></span>支出分类占比</h2>
+        <span class="chart-hint" id="pie-hint">点击扇区查看每日走势</span>
+      </div>
+      <div class="chart-box" id="chart-category-pie"></div>
+    </article>
+
+    <article class="chart-card chart-col-7">
+      <div class="chart-head">
+        <h2 class="chart-title"><span class="dot" style="background: var(--income)"></span>近 6 个月收支趋势</h2>
+        <span class="chart-hint">单位：元</span>
+      </div>
+      <div class="chart-box" id="chart-monthly-trend"></div>
+    </article>
+
+    <article class="chart-card chart-col-7">
+      <div class="chart-head">
+        <h2 class="chart-title" id="daily-title"><span class="dot" style="background: var(--expense)"></span>当月每日支出</h2>
+        <span class="chart-hint" id="daily-hint">单位：元</span>
+      </div>
+      <div class="chart-box" id="chart-daily-trend"></div>
+    </article>
+
+    <article class="chart-card chart-col-5">
+      <div class="chart-head">
+        <h2 class="chart-title" id="top-title"><span class="dot" style="background: var(--warning)"></span>支出 TOP5</h2>
+        <span class="chart-hint">单位：元</span>
+      </div>
+      <div class="chart-box" id="chart-top"></div>
+    </article>
+
+    <article class="chart-card chart-col-12">
+      <div class="chart-head">
+        <h2 class="chart-title"><span class="dot" style="background: #ec4899"></span>年度支出日历</h2>
+        <span class="chart-hint">颜色越深表示当天支出越多</span>
+      </div>
+      <div class="chart-box chart-box-sm" id="chart-heatmap"></div>
+    </article>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stats.js') }}"></script>
+{% endblock %}
