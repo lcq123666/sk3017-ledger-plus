@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}400 请求有误{% endblock %}
+
+{% block content %}
+<div class="error-wrap">
+  <div class="error-card">
+    <span class="error-emoji">🧩</span>
+    <div class="error-code">400</div>
+    <h1 class="error-title">{{ message or '请求参数有误' }}</h1>
+    <p class="error-desc">
+      可能是链接里的参数不正确，或页面停留过久导致表单令牌失效。
+      刷新页面后重试通常就能解决；如果问题依旧，请重新从首页进入。
+    </p>
+    <div class="error-actions">
+      <a class="btn btn-primary" href="{{ url_for('ledger.index') }}">返回首页</a>
+      <a class="btn btn-soft" href="javascript:location.reload()">刷新页面</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

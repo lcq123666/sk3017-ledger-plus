@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}账户管理{% endblock %}
+
+{% block content %}
+{% set kinds = account_kinds if account_kinds is defined and account_kinds else {'cash': '现金', 'alipay': '支付宝', 'wechat': '微信', 'bank': '银行卡'} %}
+{% set kind_icons = {'cash': '💵', 'alipay': '💳', 'wechat': '💬', 'bank': '🏦'} %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">账户管理</h1>
+    <p class="page-sub">管理你的资金账户（现金 / 支付宝 / 微信 / 银行卡），记账时可以标注这笔钱从哪来、到哪去。</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('ledger.record_create') }}">去记一笔</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <section class="card-soft">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot"></span>新增账户</h2>
+      </div>
+      <div class="card-body-soft">
+        <form method="post" action="{{ url_for('ledger.create_account') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="mb-3">
+            <label class="form-label" for="account-name">账户名称 <span class="text-expense">*</span></label>
+            <input type="text" class="form-control {{ 'is-invalid' if errors.name }}"
+                   id="account-name" name="name" maxlength="32"
+                   value="{{ values.get('name', '') }}" placeholder="如：招行卡、校园卡、零钱包">
+            {% if errors.name %}<div class="invalid-feedback">{{ errors.name }}</div>
+            {% else %}<div class="form-text">最多 32 个字，同一用户下不能重名。</div>{% endif %}
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label" for="account-kind">账户类型 <span class="text-expense">*</span></label>
+            <select class="form-select {{ 'is-invalid' if errors.kind }}" id="account-kind" name="kind">
+              {% for kind, label in kinds.items() %}
+                <option value="{{ kind }}" {{ 'selected' if values.get('kind', 'cash') == kind }}>
+                  {{ kind_icons.get(kind, '💰') }} {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+            {% if errors.kind %}<div class="invalid-feedback">{{ errors.kind }}</div>{% endif %}
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">＋ 添加账户</button>
+        </form>
+
+        <hr class="divider-dashed">
+        <ul class="hint-list">
+          <li>删除账户不会删除历史账目，只把账目上的账户显示为空；</li>
+          <li>至少需要保留一个账户。</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-xl-8">
+    <section class="card-soft h-100">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot" style="background: var(--income)"></span>我的账户</h2>
+        <span class="text-faint" style="font-size:.76rem;">共 {{ accounts|length }} 个</span>
+      </div>
+      <div class="card-body-soft">
+        {% if accounts %}
+          <div class="account-grid">
+            {% for a in accounts %}
+              <div class="account-card">
+                <span class="account-icon">{{ kind_icons.get(a.kind, '💰') }}</span>
+                <div class="account-main">
+                  <div class="account-name" title="{{ a.name }}">{{ a.name }}</div>
+                  <div class="account-kind">{{ kinds.get(a.kind, a.kind) }}</div>
+                </div>
+                <div class="account-actions">
+                  <button type="button" class="btn btn-soft btn-icon" data-bs-toggle="modal"
+                          data-bs-target="#editAccountModal{{ a.id }}" aria-label="编辑账户「{{ a.name }}」" title="编辑">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                  </button>
+                  <form method="post" action="{{ url_for('ledger.delete_account', aid=a.id) }}"
+                        data-confirm="确定删除账户「{{ a.name }}」吗？该账户下的历史账目会保留，但账户显示为空">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-ghost-danger btn-icon" aria-label="删除账户「{{ a.name }}」" title="删除">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <span class="empty-emoji">👛</span>
+            <div class="empty-title">还没有账户</div>
+            <div class="empty-sub">先在左边添加一个账户，记账时就能选择资金来源了。</div>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ============ 编辑账户弹窗 ============ -->
+{% for a in accounts %}
+  <div class="modal fade" id="editAccountModal{{ a.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('ledger.update_account', aid=a.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="modal-header">
+            <h5 class="modal-title">编辑账户「{{ a.name }}」</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label" for="edit-account-name-{{ a.id }}">账户名称</label>
+              <input type="text" class="form-control" id="edit-account-name-{{ a.id }}" name="name"
+                     maxlength="32" value="{{ a.name }}" required>
+            </div>
+            <div class="mb-2">
+              <label class="form-label" for="edit-account-kind-{{ a.id }}">账户类型</label>
+              <select class="form-select" id="edit-account-kind-{{ a.id }}" name="kind">
+                {% for kind, label in kinds.items() %}
+                  <option value="{{ kind }}" {{ 'selected' if a.kind == kind }}>{{ kind_icons.get(kind, '💰') }} {{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-soft" data-bs-dismiss="modal">取消</button>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

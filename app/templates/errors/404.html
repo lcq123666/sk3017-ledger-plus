@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}404 页面不存在{% endblock %}
+
+{% block content %}
+<div class="error-wrap">
+  <div class="error-card">
+    <span class="error-emoji">🧭</span>
+    <div class="error-code">404</div>
+    <h1 class="error-title">{{ message or '页面走丢了' }}</h1>
+    <p class="error-desc">
+      你访问的页面不存在，可能是链接输入有误，或者这条记录已经被删除。
+      回到首页看看本月概览吧。
+    </p>
+    <div class="error-actions">
+      <a class="btn btn-primary" href="{{ url_for('ledger.index') }}">返回首页</a>
+      <a class="btn btn-soft" href="{{ url_for('ledger.records') }}">去账目流水</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block title %}账目流水{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">账目流水</h1>
+    <p class="page-sub">{{ month_label }} · 共 {{ pagination.total }} 条记录，支持按月份 / 类型 / 分类 / 关键词筛选</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft"
+       href="{{ export_url() }}">
+      ⬇ 导出 CSV
+    </a>
+    <a class="btn btn-primary" href="{{ url_for('ledger.record_create') }}">＋ 记一笔</a>
+  </div>
+</div>
+
+{% set f_year = filters.get('year', '')|string %}
+{% set f_month = filters.get('month', '')|string %}
+{% set f_type = filters.get('type', '')|string %}
+{% set f_cat = filters.get('category_id', '')|string %}
+
+<!-- ============ 筛选栏 ============ -->
+<section class="filter-card">
+  <form method="get" action="{{ url_for('ledger.records') }}" id="record-filter-form">
+    <div class="filter-grid">
+      <div>
+        <label class="form-label" for="filter-year">年份</label>
+        <select class="form-select" id="filter-year" name="year">
+          <option value="">全部年份</option>
+          {% for y in years %}
+            <option value="{{ y }}" {{ 'selected' if f_year == y|string }}>{{ y }} 年</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label" for="filter-month">月份</label>
+        <select class="form-select" id="filter-month" name="month">
+          <option value="">全部月份</option>
+          {% for m in range(1, 13) %}
+            <option value="{{ m }}" {{ 'selected' if f_month == m|string }}>{{ m }} 月</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label" for="filter-type">类型</label>
+        <select class="form-select" id="filter-type" name="type">
+          <option value="">全部类型</option>
+          <option value="expense" {{ 'selected' if f_type == 'expense' }}>支出</option>
+          <option value="income" {{ 'selected' if f_type == 'income' }}>收入</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label" for="filter-category">分类</label>
+        <select class="form-select" id="filter-category" name="category_id">
+          <option value="">全部分类</option>
+          <optgroup label="支出">
+            {% for c in categories if c.type == 'expense' %}
+              <option value="{{ c.id }}" {{ 'selected' if f_cat == c.id|string }}>{{ c.icon }} {{ c.name }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="收入">
+            {% for c in categories if c.type == 'income' %}
+              <option value="{{ c.id }}" {{ 'selected' if f_cat == c.id|string }}>{{ c.icon }} {{ c.name }}</option>
+            {% endfor %}
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="filter-keyword">
+        <label class="form-label" for="filter-keyword">关键词</label>
+        <input type="search" class="form-control" id="filter-keyword" name="keyword"
+               value="{{ filters.get('keyword', '') }}" placeholder="搜索备注 / 分类">
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">筛选</button>
+        <a class="btn btn-soft" href="{{ url_for('ledger.records') }}">重置</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="filter-summary">
+    <span class="summary-income">收入 <strong>¥{{ summary.income|money }}</strong></span>
+    <span class="summary-expense">支出 <strong>¥{{ summary.expense|money }}</strong></span>
+    <span>结余 <strong class="{{ 'text-income' if summary.balance >= 0 else 'text-expense' }}">¥{{ summary.balance|money }}</strong></span>
+    <span>记录数 <strong>{{ summary.count }}</strong></span>
+  </div>
+</section>
+
+<!-- ============ 流水表格 ============ -->
+<section class="card-soft">
+  <div class="card-head">
+    <h2 class="card-title-sm"><span class="dot"></span>流水明细</h2>
+    <span class="text-faint" style="font-size:.78rem;">第 {{ pagination.page }} / {{ pagination.pages or 1 }} 页</span>
+  </div>
+  <div class="card-body-flush">
+    {% if records %}
+      <div class="table-responsive">
+        <table class="table table-ledger align-middle">
+          <thead>
+            <tr>
+              <th scope="col">日期</th>
+              <th scope="col">类型</th>
+              <th scope="col">分类</th>
+              <th scope="col" class="d-none d-lg-table-cell">账户</th>
+              <th scope="col" class="d-none d-md-table-cell">备注</th>
+              <th scope="col" class="text-end">金额</th>
+              <th scope="col" class="text-end">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in records %}
+              <tr>
+                <td class="cell-date">{{ record.record_date|datefmt }}</td>
+                <td>
+                  <span class="tag-type {{ record.type }}">{{ '收入' if record.type == 'income' else '支出' }}</span>
+                </td>
+                <td>
+                  <span class="cat-badge" style="--cat-color: {{ record.category.color if record.category else '#94a3b8' }}">
+                    <span class="cat-dot"></span>
+                    <span class="truncate">{{ record.category.name if record.category else '未分类' }}</span>
+                  </span>
+                </td>
+                <td class="d-none d-lg-table-cell text-muted-2">{{ record.account.name if record.account else '-' }}</td>
+                <td class="d-none d-md-table-cell cell-note" title="{{ record.note or '' }}">{{ record.note or '—' }}</td>
+                <td class="cell-money {{ 'text-income' if record.type == 'income' else 'text-expense' }}">
+                  {{ '+' if record.type == 'income' else '-' }}¥{{ record.amount|money }}
+                </td>
+                <td class="cell-actions">
+                  <a class="btn btn-soft btn-icon" href="{{ url_for('ledger.record_edit', rid=record.id) }}" title="编辑这条记录" aria-label="编辑">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                  </a>
+                  <form method="post" action="{{ url_for('ledger.delete_record', rid=record.id) }}"
+                        data-confirm="确定删除这条记录吗？删除后不可恢复">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-ghost-danger btn-icon" title="删除这条记录" aria-label="删除">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <span class="empty-emoji">🔍</span>
+        <div class="empty-title">没有找到符合条件的记录</div>
+        <div class="empty-sub">试试放宽筛选条件，或者先记一笔。</div>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('ledger.record_create') }}">去记一笔</a>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if pagination.pages > 1 %}
+    <div class="pager-wrap">
+      <span class="pager-info">共 {{ pagination.total }} 条 · 每页 {{ pagination.per_page }} 条</span>
+      <nav class="pager" aria-label="分页">
+        {% if pagination.has_prev %}
+          <a class="page-btn" href="{{ records_url(page=pagination.page - 1) }}" aria-label="上一页">‹</a>
+        {% else %}
+          <span class="page-btn disabled" aria-hidden="true">‹</span>
+        {% endif %}
+
+        {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+          {% if p %}
+            {% if p == pagination.page %}
+              <span class="page-btn active" aria-current="page">{{ p }}</span>
+            {% else %}
+              <a class="page-btn" href="{{ records_url(page=p) }}">{{ p }}</a>
+            {% endif %}
+          {% else %}
+            <span class="page-gap">…</span>
+          {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+          <a class="page-btn" href="{{ records_url(page=pagination.page + 1) }}" aria-label="下一页">›</a>
+        {% else %}
+          <span class="page-btn disabled" aria-hidden="true">›</span>
+        {% endif %}
+      </nav>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/records.js') }}"></script>
+{% endblock %}

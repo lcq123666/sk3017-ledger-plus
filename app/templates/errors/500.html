@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}500 服务器错误{% endblock %}
+
+{% block content %}
+<div class="error-wrap">
+  <div class="error-card">
+    <span class="error-emoji">🛠️</span>
+    <div class="error-code">500</div>
+    <h1 class="error-title">{{ message or '服务器内部错误' }}</h1>
+    <p class="error-desc">
+      服务器开小差了，你的数据不会丢失。请稍后刷新重试；
+      如果持续出现，可以稍等片刻再回来看看。
+    </p>
+    <div class="error-actions">
+      <a class="btn btn-primary" href="{{ url_for('ledger.index') }}">返回首页</a>
+      <a class="btn btn-soft" href="javascript:location.reload()">刷新页面</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

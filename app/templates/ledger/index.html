@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}概览{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ month_label }}概览</h1>
+    <p class="page-sub">今天是 {{ today_date.strftime('%Y-%m-%d') }} · 记录每一笔，心里更有数</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('ledger.records') }}">查看流水</a>
+    <a class="btn btn-primary" href="{{ url_for('ledger.record_create') }}">＋ 记一笔</a>
+  </div>
+</div>
+
+<!-- ============ 4 个指标卡 ============ -->
+<div class="stat-grid">
+  <article class="stat-card tone-income">
+    <div class="stat-head">
+      <span class="stat-label">本月收入</span>
+      <span class="stat-icon">💰</span>
+    </div>
+    <div class="stat-value money text-income">¥{{ summary.income|money }}</div>
+    <div class="stat-hint">共 {{ summary.count }} 笔收支中的收入合计</div>
+  </article>
+
+  <article class="stat-card tone-expense">
+    <div class="stat-head">
+      <span class="stat-label">本月支出</span>
+      <span class="stat-icon">🧾</span>
+    </div>
+    <div class="stat-value money text-expense">¥{{ summary.expense|money }}</div>
+    <div class="stat-hint">本月已花出去的钱</div>
+  </article>
+
+  <article class="stat-card {{ 'tone-income' if summary.balance >= 0 else 'tone-expense' }}">
+    <div class="stat-head">
+      <span class="stat-label">本月结余</span>
+      <span class="stat-icon">⚖️</span>
+    </div>
+    <div class="stat-value money {{ 'text-income' if summary.balance >= 0 else 'text-expense' }}">
+      {{ '-' if summary.balance < 0 else '' }}¥{{ summary.balance|abs|money }}
+    </div>
+    <div class="stat-hint">{{ '收入大于支出，继续保持 🎉' if summary.balance >= 0 else '支出超过收入，注意控制开销' }}</div>
+  </article>
+
+  <article class="stat-card tone-brand">
+    <div class="stat-head">
+      <span class="stat-label">记录笔数</span>
+      <span class="stat-icon">🧮</span>
+    </div>
+    <div class="stat-value money">{{ summary.count }}<small>笔</small></div>
+    <div class="stat-hint">{{ summary.year }} 年 {{ summary.month }} 月共记账 {{ summary.count }} 次</div>
+  </article>
+</div>
+
+<div class="row g-4 section-gap">
+  <!-- ============ 快速记一笔 ============ -->
+  <div class="col-xl-4">
+    <section class="card-soft card-soft-hover h-100">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot"></span>快速记一笔</h2>
+        <a class="card-link" href="{{ url_for('ledger.record_create') }}">完整表单 →</a>
+      </div>
+      <div class="card-body-soft">
+        <form id="quick-record-form" class="quick-form"
+              data-endpoint="{{ url_for('stats.api_create_record') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="segmented mb-3" role="radiogroup" aria-label="收支类型">
+            <input type="radio" id="quick-type-expense" name="type" value="expense" checked>
+            <label for="quick-type-expense">💸 支出</label>
+            <input type="radio" id="quick-type-income" name="type" value="income">
+            <label for="quick-type-income">💵 收入</label>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="quick-amount">金额</label>
+            <div class="amount-input-wrap">
+              <span class="currency-sign">¥</span>
+              <input type="text" class="form-control" id="quick-amount" name="amount"
+                     inputmode="decimal" autocomplete="off" placeholder="0.00"
+                     data-validate="amount" required>
+            </div>
+            <div class="invalid-feedback d-block" data-error-for="amount"></div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label" for="quick-category">分类</label>
+              <select class="form-select" id="quick-category" name="category_id" required>
+                <option value="">请选择分类</option>
+                <optgroup label="支出分类" data-type="expense">
+                  {% for c in categories if c.type == 'expense' %}
+                    <option value="{{ c.id }}" data-type="expense">{{ c.icon }} {{ c.name }}</option>
+                  {% endfor %}
+                </optgroup>
+                <optgroup label="收入分类" data-type="income">
+                  {% for c in categories if c.type == 'income' %}
+                    <option value="{{ c.id }}" data-type="income">{{ c.icon }} {{ c.name }}</option>
+                  {% endfor %}
+                </optgroup>
+              </select>
+              <div class="invalid-feedback d-block" data-error-for="category_id"></div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label" for="quick-account">账户</label>
+              <select class="form-select" id="quick-account" name="account_id">
+                <option value="">不指定</option>
+                {% for a in accounts %}
+                  <option value="{{ a.id }}">{{ a.name }}</option>
+                {% endfor %}
+              </select>
+              <div class="invalid-feedback d-block" data-error-for="account_id"></div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label" for="quick-date">日期</label>
+              <input type="date" class="form-control" id="quick-date" name="record_date"
+                     value="{{ today_date.isoformat() }}" max="{{ today_date.isoformat() }}"
+                     data-validate="date" required>
+              <div class="invalid-feedback d-block" data-error-for="record_date"></div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label" for="quick-note">备注</label>
+              <input type="text" class="form-control" id="quick-note" name="note"
+                     maxlength="200" placeholder="今天吃了什么？">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">保存这笔记录</button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ 最近 8 条记录 ============ -->
+  <div class="col-xl-8">
+    <section class="card-soft h-100">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot" style="background: var(--income)"></span>最近记录</h2>
+        <a class="card-link" href="{{ url_for('ledger.records') }}">全部流水 →</a>
+      </div>
+      <div class="card-body-flush">
+        {% if recent_records %}
+          <div class="record-list">
+            {% for record in recent_records %}
+              <div class="record-item">
+                <span class="record-icon"
+                      style="{% if record.category %}background: {{ record.category.color }}1f; border-color: {{ record.category.color }}40;{% endif %}">
+                  {{ record.category.icon if record.category else '💰' }}
+                </span>
+                <div class="record-main">
+                  <div class="record-title">
+                    <span class="truncate">{{ record.note or (record.category.name if record.category else '未分类') }}</span>
+                    <span class="tag-type {{ record.type }}">{{ '收入' if record.type == 'income' else '支出' }}</span>
+                  </div>
+                  <div class="record-sub">
+                    <span>{{ record.category.name if record.category else '未分类' }}</span>
+                    <span>·</span>
+                    <span>{{ record.account.name if record.account else '未指定账户' }}</span>
+                    <span>·</span>
+                    <span>{{ record.record_date|datefmt }}</span>
+                  </div>
+                </div>
+                <span class="record-amount {{ record.type }}">
+                  {{ '+' if record.type == 'income' else '-' }}¥{{ record.amount|money }}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <span class="empty-emoji">📒</span>
+            <div class="empty-title">还没有任何记录</div>
+            <div class="empty-sub">从左边快速记第一笔，或打开完整表单慢慢填。</div>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('ledger.record_create') }}">去记一笔</a>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- ============ 本月预算 ============ -->
+  <div class="col-xl-6">
+    <section class="card-soft h-100">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot" style="background: var(--warning)"></span>本月预算</h2>
+        <a class="card-link" href="{{ url_for('ledger.budgets') }}">设置预算 →</a>
+      </div>
+      <div class="card-body-soft">
+        {% if budget and budget.amount and budget.amount|float > 0 %}
+          {% set usage = budget.usage|default(0)|float %}
+          <div class="budget-meta">
+            <div>
+              <div class="text-faint" style="font-size:.76rem;">本月预算</div>
+              <div class="budget-amount money">¥{{ budget.amount|money }}</div>
+            </div>
+            <div class="budget-usage level-{{ budget.level|default('normal') }}">{{ '%.1f'|format(usage) }}%</div>
+          </div>
+          <div class="progress" role="progressbar" aria-valuenow="{{ '%.0f'|format(usage) }}" aria-valuemin="0" aria-valuemax="100" aria-label="预算使用率">
+            <div class="progress-bar level-{{ budget.level|default('normal') }}"
+                 style="width: {{ [usage, 100]|min }}%;"></div>
+          </div>
+          <div class="budget-foot">
+            <span>已支出 <strong class="text-expense money">¥{{ budget.spent|money }}</strong></span>
+            <span>剩余 <strong class="{{ 'text-income' if budget.remain >= 0 else 'text-expense' }} money">¥{{ budget.remain|money }}</strong></span>
+          </div>
+          {% if budget.level == 'over' or usage > 100 %}
+            <div class="alert-over">🚨 本月预算已超支，共超出 ¥{{ (budget.spent - budget.amount)|money }}，接下来省着点花。</div>
+          {% elif budget.level == 'warn' %}
+            <div class="alert-warn">🔔 预算已使用 {{ '%.1f'|format(usage) }}%，接近上限，注意开销。</div>
+          {% endif %}
+        {% else %}
+          <div class="empty-state" style="padding: 22px 12px;">
+            <span class="empty-emoji">🎯</span>
+            <div class="empty-title">本月还没有设置预算</div>
+            <div class="empty-sub">设置一个月度预算，超支时会在概览页醒目提醒。</div>
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('ledger.budgets') }}">去设置预算</a>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ 支出 TOP5 ============ -->
+  <div class="col-xl-6">
+    <section class="card-soft h-100">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot" style="background: var(--expense)"></span>支出 TOP5</h2>
+        <a class="card-link" href="{{ url_for('stats.index') }}">详细统计 →</a>
+      </div>
+      <div class="card-body-soft">
+        {% if top_categories %}
+          {% set max_value = top_categories[0].value %}
+          {% for item in top_categories %}
+            {% set bar_width = (item.value / max_value * 100) if max_value else 0 %}
+            <div class="top-cat-item">
+              <div class="top-cat-head">
+                <span class="top-cat-name">
+                  <span class="cat-dot" style="--cat-color: {{ item.color }}"></span>
+                  <span class="truncate">{{ item.name }}</span>
+                </span>
+                <span class="top-cat-value">¥{{ item.value|money }}<small>{{ '%.1f'|format(item.percent|default(0)|float) }}%</small></span>
+              </div>
+              <div class="top-cat-bar">
+                <span style="--cat-color: {{ item.color }}; width: {{ bar_width|round(1) }}%;"></span>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state" style="padding: 22px 12px;">
+            <span class="empty-emoji">📊</span>
+            <div class="empty-title">本月还没有支出</div>
+            <div class="empty-sub">记几笔支出后，这里会显示花销最多的 5 个分类。</div>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/records.js') }}"></script>
+{% endblock %}

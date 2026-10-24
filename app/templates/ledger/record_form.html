@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}{{ '编辑记录' if is_edit else '记一笔' }}{% endblock %}
+
+{% block content %}
+{# 后端 GET 路径只传 record/categories/accounts/action_url，这里做兜底，避免 values/errors 未定义 #}
+{% set values = values if values is defined and values is not none else {} %}
+{% set errors = errors if errors is defined and errors is not none else {} %}
+{% set record = record if record is defined else none %}
+{% set is_edit = is_edit if is_edit is defined else false %}
+{% set v_amount = values.get('amount') if values.get('amount') is not none else (('%.2f'|format(record.amount|float)) if record else '') %}
+{% set v_type = values.get('type') or (record.type if record else 'expense') %}
+{% set v_cat = values.get('category_id', '') %}
+{% if v_cat == '' or v_cat is none %}{% set v_cat = record.category_id if record else '' %}{% endif %}
+{% set v_acc = values.get('account_id', '') %}
+{% if v_acc == '' or v_acc is none %}{% set v_acc = record.account_id if record else '' %}{% endif %}
+{% set v_date = values.get('record_date') or (record.record_date|datefmt if record else today_str) %}
+{% set v_note = values.get('note') if values.get('note') is not none else (record.note or '' if record else '') %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ '编辑记录' if is_edit else '记一笔' }}</h1>
+    <p class="page-sub">
+      {% if is_edit %}
+        修改后保存，统计与预算会立即按新数据重算
+      {% else %}
+        金额支持两位小数，日期不能晚于今天（{{ today_str }}）
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('ledger.records') }}">返回流水</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <section class="card-soft">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot"></span>{{ '编辑账目' if is_edit else '新增账目' }}</h2>
+        <span class="text-faint" style="font-size:.76rem;">
+          {% if is_edit %}记录 ID #{{ record.id }}{% else %}带 * 为必填项{% endif %}
+        </span>
+      </div>
+      <div class="card-body-soft">
+        {% if errors %}
+          <div class="flash flash-danger" role="alert" style="margin-bottom:18px;">
+            <span class="flash-icon">⚠️</span>
+            <span class="flash-body">表单填写有误，请按下方提示修改后重新提交。</span>
+          </div>
+        {% endif %}
+
+        <form method="post" action="{{ action_url }}" id="record-form" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="mb-3">
+            <label class="form-label d-block">收支类型 <span class="text-expense">*</span></label>
+            <div class="segmented" style="max-width: 320px;" role="radiogroup" aria-label="收支类型">
+              <input type="radio" id="record-type-expense" name="type" value="expense"
+                     {{ 'checked' if v_type != 'income' }}>
+              <label for="record-type-expense">💸 支出</label>
+              <input type="radio" id="record-type-income" name="type" value="income"
+                     {{ 'checked' if v_type == 'income' }}>
+              <label for="record-type-income">💵 收入</label>
+            </div>
+            {% if errors.type %}<div class="invalid-feedback d-block">{{ errors.type }}</div>{% endif %}
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label" for="record-amount">金额 <span class="text-expense">*</span></label>
+              <div class="amount-input-wrap">
+                <span class="currency-sign">¥</span>
+                <input type="text" class="form-control {{ 'is-invalid' if errors.amount }}"
+                       id="record-amount" name="amount" inputmode="decimal" autocomplete="off"
+                       placeholder="0.00" value="{{ v_amount }}" data-validate="amount" required>
+              </div>
+              {% if errors.amount %}<div class="invalid-feedback d-block">{{ errors.amount }}</div>
+              {% else %}<div class="form-text">正数，最多两位小数，如 12.50</div>{% endif %}
+            </div>
+
+            <div class="col-sm-6">
+              <label class="form-label" for="record-date">日期 <span class="text-expense">*</span></label>
+              <input type="date" class="form-control {{ 'is-invalid' if errors.record_date }}"
+                     id="record-date" name="record_date" value="{{ v_date }}"
+                     max="{{ today_str }}" data-validate="date" required>
+              {% if errors.record_date %}<div class="invalid-feedback d-block">{{ errors.record_date }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label" for="record-category">分类</label>
+              <select class="form-select {{ 'is-invalid' if errors.category_id }}" id="record-category" name="category_id">
+                <option value="">未分类</option>
+                <optgroup label="支出分类" data-type="expense">
+                  {% for c in categories if c.type == 'expense' %}
+                    <option value="{{ c.id }}" data-type="expense" {{ 'selected' if v_cat|string == c.id|string }}>{{ c.icon }} {{ c.name }}</option>
+                  {% endfor %}
+                </optgroup>
+                <optgroup label="收入分类" data-type="income">
+                  {% for c in categories if c.type == 'income' %}
+                    <option value="{{ c.id }}" data-type="income" {{ 'selected' if v_cat|string == c.id|string }}>{{ c.icon }} {{ c.name }}</option>
+                  {% endfor %}
+                </optgroup>
+              </select>
+              {% if errors.category_id %}<div class="invalid-feedback d-block">{{ errors.category_id }}</div>{% endif %}
+            </div>
+
+            <div class="col-sm-6">
+              <label class="form-label" for="record-account">账户</label>
+              <select class="form-select {{ 'is-invalid' if errors.account_id }}" id="record-account" name="account_id">
+                <option value="">不指定账户</option>
+                {% for a in accounts %}
+                  <option value="{{ a.id }}" {{ 'selected' if v_acc|string == a.id|string }}>{{ a.name }}</option>
+                {% endfor %}
+              </select>
+              {% if errors.account_id %}<div class="invalid-feedback d-block">{{ errors.account_id }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label" for="record-note">备注</label>
+            <input type="text" class="form-control {{ 'is-invalid' if errors.note }}"
+                   id="record-note" name="note" maxlength="200" value="{{ v_note }}"
+                   placeholder="例如：食堂午饭、地铁通勤、兼职收入…">
+            {% if errors.note %}<div class="invalid-feedback d-block">{{ errors.note }}</div>
+            {% else %}<div class="form-text">最多 200 个字，选填。</div>{% endif %}
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary">{{ '保存修改' if is_edit else '保存记录' }}</button>
+            <a class="btn btn-soft" href="{{ url_for('ledger.records') }}">取消</a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-xl-4">
+    <section class="card-soft">
+      <div class="card-head">
+        <h2 class="card-title-sm"><span class="dot" style="background: var(--warning)"></span>填写提示</h2>
+      </div>
+      <div class="card-body-soft">
+        <ul class="hint-list">
+          <li>分类会随「支出 / 收入」类型自动切换可选范围；</li>
+          <li>金额不能为 0、负数或超过 8 位整数；</li>
+          <li>日期不能早于 2000-01-01，也不能晚于今天；</li>
+          <li>不指定分类时会记为「未分类」，不影响统计总额；</li>
+          <li>服务端会再校验一遍，前端校验只是更快的提示。</li>
+        </ul>
+        <hr class="divider-dashed">
+        <div class="soft-block">
+          <div class="text-faint" style="font-size:.76rem; margin-bottom:6px;">本月概览</div>
+          <div style="font-size:.84rem; color: var(--text-2);">
+            记完账后回到
+            <a href="{{ url_for('ledger.index') }}">概览页</a>
+            可以看到本月的收入、支出、预算进度与分类排行。
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/records.js') }}"></script>
+{% endblock %}
