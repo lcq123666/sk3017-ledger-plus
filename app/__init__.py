@@ -219,16 +219,27 @@ def _register_cli(app: Flask) -> None:
 
 
 def _configure_logging(app: Flask) -> None:
-    """日志同时写文件（logs/app.log，滚动到 1MB）和控制台。"""
+    """日志同时写文件（logs/app.log，滚动到 1MB）和控制台。
+
+    日志目录不可写（只读挂载、权限不足、沙箱限制等）时不能把应用带崩，
+    因此这里降级为"仅控制台输出"，只在启动时打一条警告。
+    """
     if app.config.get("TESTING"):
         return
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     log_dir = os.path.join(base_dir, "logs")
-    os.makedirs(log_dir, exist_ok=True)
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        handler = RotatingFileHandler(
+            os.path.join(log_dir, "app.log"),
+            maxBytes=1024 * 1024,
+            backupCount=3,
+            encoding="utf-8",
+        )
+    except OSError as exc:  # pragma: no cover - 依赖运行环境的权限
+        app.logger.warning("日志目录不可写（%s），已降级为仅控制台输出", exc)
+        return
 
-    handler = RotatingFileHandler(
-        os.path.join(log_dir, "app.log"), maxBytes=1024 * 1024, backupCount=3, encoding="utf-8"
-    )
     handler.setFormatter(
         logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
     )
